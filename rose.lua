@@ -1,17 +1,5 @@
+repeat task.wait() until game:IsLoaded()
 
--- LOAD TIMELINE (instrumentation only, no behavior change): appends "+seconds TAG" lines to
--- rose_load.log in the executor workspace so each rejoin shows which startup gate costs time.
-_G.JAF_LT0 = os.clock()
-_G.JAF_LoadLog = function(tag, extra)
-    if type(writefile) ~= "function" then return end
-    pcall(function()
-        local line = string.format("%d\t+%.2fs\t%s\t%s", os.time(), os.clock() - _G.JAF_LT0, tostring(tag), tostring(extra or ""))
-        local prev = (type(isfile) == "function" and isfile("rose_load.log") and readfile("rose_load.log")) or ""
-        if #prev > 30000 then prev = prev:sub(-30000) end
-        writefile("rose_load.log", prev .. line .. "\n")
-    end)
-end
-_G.JAF_LoadLog("SCRIPT_START", "isLoaded=" .. tostring(game:IsLoaded()))
 local SAB_LIVE = function() return true end
 local _SABCAP = {}
 if not LPH_OBFUSCATED then
@@ -83,7 +71,6 @@ if _G.JAF_BootYield ~= false then
     _G.JAF_BootReady = true
     end) end
 if not game:IsLoaded() then game.Loaded:Wait() end
-_G.JAF_LoadLog("GAME_LOADED")
 do
     local _efOn = true
     pcall(function() LPH_ATTRIBUTES(VM(NONE), ERROR_HANDLING(false))
@@ -3076,13 +3063,6 @@ do
     local function findMyPlot() LPH_ATTRIBUTES(ERROR_HANDLING(false))
         local plots = workspace:FindFirstChild("Plots")
         if not plots then return nil end
-        -- reliable: the game only enables the "YourBase" billboard on YOUR plot's sign
-        -- (same check isMyPlot / _jaf_onOwnPlotSteal use). Falls back to the name match below.
-        for _, plot in ipairs(plots:GetChildren()) do
-            local sign = plot:FindFirstChild("PlotSign")
-            local yb = sign and sign:FindFirstChild("YourBase")
-            if yb and yb:IsA("BillboardGui") and yb.Enabled then return plot end
-        end
         for _, plot in ipairs(plots:GetChildren()) do
             local sign = plot:FindFirstChild("PlotSign")
             if sign then
@@ -3110,7 +3090,7 @@ plotBeam:Destroy() end) end
 plotBeamAttachment0:Destroy() end) end
         plotBeamAttachment0 = hrp:FindFirstChild("PlotBeamAttach_Player") or Instance.new("Attachment")
         _P(plotBeamAttachment0, "Name", "PlotBeamAttach_Player", "Position", Vector3.new(0, 0, 0), "Parent", hrp)
-        local plotPart = myPlot:FindFirstChild("MainRootPart") or myPlot:FindFirstChild("MainRoot") or myPlot:FindFirstChildWhichIsA("BasePart")
+        local plotPart = myPlot:FindFirstChild("MainRootPart") or myPlot:FindFirstChildWhichIsA("BasePart")
         if not plotPart or not plotPart.Parent then return end
         plotBeamAttachment1 = plotPart:FindFirstChild("PlotBeamAttach_Plot") or Instance.new("Attachment")
         _P(plotBeamAttachment1, "Name", "PlotBeamAttach_Plot", "Position", Vector3.new(0, 5, 0), "Parent", plotPart)
@@ -12415,10 +12395,8 @@ if Config.TpSettings.TpOnLoad then
             local h = c and c:FindFirstChild("HumanoidRootPart")
             return h and h.Position
         end
-        _G.JAF_LoadLog("TP_THREAD_START", "mode=" .. tostring(Config.TpSettings.TpMode) .. " waitFull=" .. tostring(Config.TpSettings.WaitFullScan ~= false))
         local w = 0
         repeat RunService.Heartbeat:Wait(); w = w + 1 until _G.tpToBestBrainrot or w > 120
-        _G.JAF_LoadLog("TP_FN_READY", "hb=" .. w .. " fn=" .. tostring(_G.tpToBestBrainrot ~= nil))
         local cw = Config.TpSettings.CacheWait or 0
         if cw > 0 then task.wait(cw) end
         local waitStart = tick()
@@ -12446,8 +12424,6 @@ if Config.TpSettings.TpOnLoad then
                or ((tick() - _scanStallAt) > (_G.JAF_ScanStallTime or 3) and #SharedState.AllAnimalsCache > 0)
               ))
            or (tick()-waitStart > (_waitFull and (_G.JAF_FullScanMaxWait or 20) or (_G.JAF_FirstLoadScanWait or 12)))
-        _G.JAF_LoadLog("SCAN_DONE", string.format("scanned=%s/%s cache=%d took=%.2fs",
-            tostring(_G.JAF_PlotsScanned), tostring(_G.JAF_PlotsTotal), #SharedState.AllAnimalsCache, tick() - waitStart))
         if _G.JAF_LoadReadyGate ~= false then
             local _rdT0, _rdCap = tick(), tonumber(_G.JAF_LoadReadyMax) or 8
             local _settle = tonumber(_G.JAF_LoadInvSettle) or 0.7
@@ -12501,8 +12477,6 @@ if Config.TpSettings.TpOnLoad then
             end
             _G.JAF_LoadReadyWhy = _why
             _G.JAF_LoadReadyMs  = math.floor((tick() - _rdT0) * 1000)
-            _G.JAF_LoadLog("READY_GATE", "why=" .. tostring(_why) .. " ms=" .. tostring(_G.JAF_LoadReadyMs)
-                .. " cloner=" .. tostring(_findTool("Quantum Cloner") ~= nil) .. " flight=" .. tostring(_flightTool() ~= nil))
         end
         if _G.JAF_WaitStableFps then
             local _need  = _G.JAF_FpsStableFrames or 8
@@ -12535,7 +12509,6 @@ if Config.TpSettings.TpOnLoad then
                 end
                 local _before = _hrpPos()
                 local _sc = _seqCommitted
-                _G.JAF_LoadLog("TP_FIRE", "try=" .. _try .. " cache=" .. #SharedState.AllAnimalsCache)
                 pcall(function() LPH_ATTRIBUTES(ERROR_HANDLING(false))
 _G.tpToBestBrainrot(nil, _sc) end)
                 if _G.JAF_TpStartedFlight then _seqCommitted = true end
@@ -12546,11 +12519,9 @@ _G.tpToBestBrainrot(nil, _sc) end)
                 if _try < (_G.JAF_FirstLoadTries or 3) then task.wait(0.5) end
             end end
         _G.JAF_FirstLoadTpDone = true
-        _G.JAF_LoadLog("TP_DONE")
     end)
 else
     _G.JAF_FirstLoadTpDone = true
-    _G.JAF_LoadLog("TP_ON_LOAD_DISABLED")
 end
 LocalPlayer:GetAttributeChangedSignal("Stealing"):Connect(function() LPH_ATTRIBUTES(VM(NONE), ERROR_HANDLING(false))
     if LocalPlayer:GetAttribute("Stealing") and Config.AutoUnlockOnSteal then task.defer(triggerClosestUnlock, nil, 19) end
@@ -13394,14 +13365,14 @@ _G._jafHudHeartbeat:Disconnect() end); _G._jafHudHeartbeat = nil end
         local main = Instance.new("Frame", hudGui)
         main.Name = "Main"
         main.Size = UDim2.new(0, 520, 0, 50)
-        _P(main, "AnchorPoint", Vector2.new(0.5, 0), "Position", UDim2.new(0.5, 0, 0, 14), "BackgroundColor3", Theme.Background, "BackgroundTransparency", 0.18, "BorderSizePixel", 0)
+        _P(main, "AnchorPoint", Vector2.new(0.5, 0), "Position", UDim2.new(0.5, 0, 0, 6), "BackgroundColor3", Theme.Background, "BackgroundTransparency", 0.18, "BorderSizePixel", 0)
         Instance.new("UICorner", main).CornerRadius = UDim.new(1, 0)
         local mainStroke = Instance.new("UIStroke", main)
         _P(mainStroke, "Color", Theme.Accent1, "Thickness", 1, "Transparency", 0.45)
         if Config.PanelScales then Config.PanelScales["JustAFanStatusHUD"] = nil end
         local _splitX = 322
-        local hubName = JUI.new("TextLabel", main, "Size", UDim2.new(0, _splitX, 0, 25), "Position", UDim2.new(0, 0, 0, 3), "BackgroundTransparency", 1, "Text", "Rose Private", "Font", Enum.Font.GothamBold, "TextSize", 22, "TextColor3", Theme.Accent1, "TextXAlignment", Enum.TextXAlignment.Center)
-        local hubOwner = JUI.new("TextLabel", main, "Size", UDim2.new(0, _splitX, 0, 16), "Position", UDim2.new(0, 0, 0, 26), "BackgroundTransparency", 1, "Text", "@pumpkinjustlarping", "Font", Enum.Font.GothamMedium, "TextSize", 14)
+        local hubName = JUI.new("TextLabel", main, "Size", UDim2.new(0, _splitX, 0, 25), "Position", UDim2.new(0, 0, 0, 3), "BackgroundTransparency", 1, "Text", "ncg6 private", "Font", Enum.Font.GothamBold, "TextSize", 22, "TextColor3", Theme.Accent1, "TextXAlignment", Enum.TextXAlignment.Center)
+        local hubOwner = JUI.new("TextLabel", main, "Size", UDim2.new(0, _splitX, 0, 16), "Position", UDim2.new(0, 0, 0, 26), "BackgroundTransparency", 1, "Text", "@ncg6", "Font", Enum.Font.GothamMedium, "TextSize", 14)
         hubOwner.TextColor3 = Color3.fromRGB(255, 255, 255)
         hubOwner.TextXAlignment = Enum.TextXAlignment.Center
         local div = JUI.new("Frame", main, "Size", UDim2.new(0, 1, 0, 30), "Position", UDim2.new(0, _splitX, 0.5, -15), "BackgroundColor3", Theme.Accent1, "BackgroundTransparency", 0.45, "BorderSizePixel", 0)
